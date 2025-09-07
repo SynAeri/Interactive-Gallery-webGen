@@ -1,24 +1,7 @@
 {
-  "name": "interactivewebgen",
-  "version": "1.0.0",
-  "description": "A curiosity, an interactive system to visualise images",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SynAeri/Interactive-Gallery-webGen.git"
-  },
-  "keywords": [
-    "interactive",
-    "website",
-    "nodejs"
-  ],
-  "author": "synAeri",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/SynAeri/Interactive-Gallery-webGen/issues"
-  },
-  "homepage": "https://github.com/SynAeri/Interactive-Gallery-webGen#readme"
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
 }
