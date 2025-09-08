@@ -1,6 +1,6 @@
 import React from 'react'
 import Gallery from './components/Gallery'
-import VisitorCounter from './components/VisitorCounter'
+import VisitorCounter from './components/VisitorCount'
 import './App.css'
 
 function App() {
