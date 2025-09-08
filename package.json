@@ -1,4 +1,17 @@
 {
+  "name": "interactive-art-gallery",
+  "version": "1.0.0",
+  "description": "Interactive art gallery built with React and TypeScript",
+  "main": "src/main.tsx",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
   "devDependencies": {
     "@types/node": "^24.3.1",
     "@types/react": "^19.1.12",
@@ -6,11 +19,6 @@
     "@vitejs/plugin-react": "^5.0.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
-    "vite": "^7.1.4"
-  },
-  "dependencies": {
-    "dom": "^0.0.3",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "vite": "^7.1.5"
   }
 }
