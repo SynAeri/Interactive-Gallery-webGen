@@ -1,45 +1,50 @@
-# Dependencies
+# Dependencies - Ignore all node_modules directories
 node_modules/
 
-# Build outputs
-dist/
-build/
+# Next.js Build Output (in 'front/')
+front/.next/
+front/out/
+front/dist/
 
-# Environment variables
+# Development/Local Artifacts
+front/npm-debug.log
+front/yarn-error.log
+front/yarn-debug.log
+front/.DS_Store
+front/.vscode/
+back/npm-debug.log
+back/yarn-error.log
+back/yarn-debug.log
+back/.DS_Store
+back/.vscode/
+
+# Logs (for both front and back)
+*.log
+logs/
+
+# Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.sample
 
-# IDE/Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
+# Other cache/lock files
+*.lock
+pnpm-lock.yaml
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Runtime data (e.g. for backend)
+back/tmp/
+back/temp/
+back/uploads/
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# TypeScript configuration cache
+front/tsconfig.tsbuildinfo
+back/tsconfig.tsbuildinfo
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Vercel Deployment files (if you deploy the Next.js app)
+.vercel/
 
-# Temporary folders
-tmp/
-temp/
+# Monorepo Tooling (if you use tools like TurboRepo or Nx later)
+.turbo/
