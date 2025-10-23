@@ -1,5 +1,5 @@
 'use client';
-
+// ToDo: maybe create small experimental Autogeneration
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
@@ -73,6 +73,10 @@ export default function GalleryPage() {
       metalness: 0.1,
     });
 
+    // Collision group for walls
+    const Collisions = new THREE.Group(); // Might be a better solution ill check later
+    scene.add(Collisions);
+
     // Left wall
     const leftWall = new THREE.Mesh(
       new THREE.PlaneGeometry(100, 5),
@@ -80,7 +84,7 @@ export default function GalleryPage() {
     );
     leftWall.position.set(-5, 2.5, 0);
     leftWall.rotation.y = Math.PI / 2;
-    scene.add(leftWall);
+    Collisions.add(leftWall);
 
     // Right wall
     const rightWall = new THREE.Mesh(
@@ -89,7 +93,24 @@ export default function GalleryPage() {
     );
     rightWall.position.set(5, 2.5, 0);
     rightWall.rotation.y = -Math.PI / 2;
-    scene.add(rightWall);
+    Collisions.add(rightWall);
+
+    // Back wall
+    const backWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 5),
+      wallMaterial
+    );
+    backWall.position.set(0, 2.5, -50);
+    Collisions.add(backWall);
+
+    // Front wall
+    const frontWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 5),
+      wallMaterial
+    );
+    frontWall.position.set(0, 2.5, 50);
+    frontWall.rotation.y = Math.PI;
+    Collisions.add(frontWall);
 
     // Ceiling
     const ceiling = new THREE.Mesh(
@@ -161,27 +182,70 @@ export default function GalleryPage() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
+    // Raycaster setup (outside animate loop for performance)
+    const raycaster = new THREE.Raycaster();
+    raycaster.far = 0.6; // Check collisions within 0.6 units
+    
+    // Direction vectors
+    const forwardDir = new THREE.Vector3();
+    const backwardDir = new THREE.Vector3();
+    const rightDir = new THREE.Vector3();
+    const leftDir = new THREE.Vector3();
+
+    // Helper function to check collision in a direction
+    const checkCollision = (direction) => {
+      raycaster.set(camera.position, direction);
+      const intersects = raycaster.intersectObjects(Collisions.children);
+      return intersects.length > 0 && intersects[0].distance < 0.5;
+    };
+
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
-
       if (controls.isLocked) {
         // Reset velocity
         velocity.x = 0;
         velocity.z = 0;
 
+        // Get camera directions
+        camera.getWorldDirection(forwardDir);
+        forwardDir.y = 0; // Keep movement horizontal
+        forwardDir.normalize();
+        backwardDir.copy(forwardDir).negate();
+        rightDir.crossVectors(forwardDir, camera.up).normalize();
+        leftDir.copy(rightDir).negate();
+
         // Calculate movement direction
-        direction.z = Number(moveState.backward) - Number(moveState.forward);
-        direction.x = Number(moveState.left) - Number(moveState.right);
+        direction.z = Number(moveState.forward) - Number(moveState.backward);
+        direction.x = Number(moveState.right) - Number(moveState.left);
         direction.normalize();
 
-        if (moveState.forward || moveState.backward) {
-          velocity.z -= direction.z * moveSpeed;
+        // Check collisions and apply movement
+        let canMoveForward = true;
+        let canMoveBackward = true;
+        let canMoveRight = true;
+        let canMoveLeft = true;
+
+        if (moveState.forward) {
+          canMoveForward = !checkCollision(forwardDir);
         }
-        if (moveState.left || moveState.right) {
-          velocity.x -= direction.x * moveSpeed;
+        if (moveState.backward) {
+          canMoveBackward = !checkCollision(backwardDir);
+        }
+        if (moveState.right) {
+          canMoveRight = !checkCollision(rightDir);
+        }
+        if (moveState.left) {
+          canMoveLeft = !checkCollision(leftDir);
         }
 
+        // Apply movement only if no collision
+        if ((moveState.forward && canMoveForward) || (moveState.backward && canMoveBackward)) {
+          velocity.z = direction.z * moveSpeed;
+        }
+        if ((moveState.right && canMoveRight) || (moveState.left && canMoveLeft)) {
+          velocity.x = direction.x * moveSpeed;
+        }
         controls.moveRight(velocity.x);
         controls.moveForward(velocity.z);
       }
