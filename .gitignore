@@ -48,3 +48,7 @@ back/tsconfig.tsbuildinfo
 
 # Monorepo Tooling (if you use tools like TurboRepo or Nx later)
 .turbo/
+
+# For some portrait stuff
+front/public/Pictures/*
+front/public/artworks.json
