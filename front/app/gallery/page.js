@@ -57,7 +57,7 @@ export default function GalleryPage() {
           textures: {
           },
           // Artworks JSON
-          artworksJsonUrl: '/artworks.json',
+          artworksJsonUrl: process.env.NEXT_PUBLIC_ARTWORKS_URL || '/artworks.json',
           // Preload artwork images for smoother experience
           preloadArtworkImages: true,
           theme: 'liminal', // Assets for wall pngs
