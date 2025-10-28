@@ -1,9 +1,5 @@
 'use client';
 
-useEffect(() => {
-  fetch('/track', { method: 'POST' });
-}, []);
-
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
@@ -25,6 +21,10 @@ export default function GalleryPage() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState('Initializing...');
   const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    fetch('/track', { method: 'POST' });
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
