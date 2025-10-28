@@ -1,8 +1,12 @@
 'use client';
-// ToDo: maybe create small experimental Autogeneration
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import GalleryGenerator from './components/GalleryGenerator';
+import ArtworkLoader from './components/ArtworkLoader';
+import LightManager from './components/LightManager';
+import AssetLoadingManager from './components/AssetLoadingManager';
 
 export default function GalleryPage() {
   const canvasRef = useRef(null);
@@ -10,305 +14,466 @@ export default function GalleryPage() {
   const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const controlsRef = useRef(null);
+  const atmosphereRef = useRef(null);
+  
   const [showOverlay, setShowOverlay] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('Initializing...');
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x1a1a1a, 1, 50); // Liminal fog Thingo for fun
-    scene.background = new THREE.Color(0x1a1a1a);
-    sceneRef.current = scene;
+    const initGallery = async () => {
+      try {
+        setLoadingStatus('Loading assets...');
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(0, 1.6, 5); // Eye level height for gallery stuff too
-    cameraRef.current = camera;
+        // ===== ASSET LOADING =====
+        const assetManager = new AssetLoadingManager(
+          // Progress callback
+          (url, loaded, total) => {
+            const progress = Math.round((loaded / total) * 100);
+            setLoadingProgress(progress);
+            setLoadingStatus(`Loading assets... ${loaded}/${total}`);
+          },
+          // Complete callback
+          () => {
+            console.log('All assets loaded');
+          },
+          // Error callback
+          (url) => {
+            console.warn(`⚠️ Error loading: ${url}`);
+          }
+        );
 
-    // Renderer setup basic shi
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    canvasRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
+        // Load all assets
+        const assets = await assetManager.loadAllAssets({
+          // Optional: Wall/floor textures
+          textures: {
+          },
+          // Artworks JSON
+          artworksJsonUrl: '/artworks.json',
+          // Preload artwork images for smoother experience
+          preloadArtworkImages: true,
+          theme: 'liminal', // Assets for wall pngs
+          useThemeTextures: true,
+          
+        });
 
-    // Lighting - liminal aesthetic
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    scene.add(ambientLight);
+        if (assets.artworks.length === 0) {
+          console.warn('No artworks loaded! Using test mode.');
+          setLoadError(true);
+        }
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(0, 10, 0);
-    scene.add(directionalLight);
+        setLoadingStatus('Building gallery...');
+        setLoadingProgress(50);
 
-    // Add some stuff testing light stuff hefre
-    const pointLight1 = new THREE.PointLight(0xffffcc, 0.4, 20);
-    pointLight1.position.set(0, 3, -10);
-    scene.add(pointLight1);
+        // ===== SCENE SETUP =====
+        const scene = new THREE.Scene();
+        sceneRef.current = scene;
 
-    const pointLight2 = new THREE.PointLight(0xffffcc, 0.4, 20);
-    pointLight2.position.set(0, 3, 10);
-    scene.add(pointLight2);
+        const camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        cameraRef.current = camera;
 
-    // Basic floor really basic baasic
-    const floorGeometry = new THREE.PlaneGeometry(100, 100);
-    const floorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x2a2a2a,
-      roughness: 0.8,
-      metalness: 0.2,
-    });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+        const renderer = new THREE.WebGLRenderer({ 
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance', // Use dedicated GPU if available
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        
+        canvasRef.current.appendChild(renderer.domElement);
+        rendererRef.current = renderer;
 
-    // Basic walls for corridor
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xe8e8e8,
-      roughness: 0.9,
-      metalness: 0.1,
-    });
+        setLoadingProgress(60);
+        setLoadingStatus('Generating rooms...');
 
-    // Collision group for walls
-    const Collisions = new THREE.Group(); // Might be a better solution ill check later
-    scene.add(Collisions);
+        // ===== GENERATE GALLERY =====
+        const generator = new GalleryGenerator({
+          picturesAvailable: assets.artworks.length || 8,
+          picturesPerRoom: 4,
+          roomSize: null,
+          hallwayWidth: 5,
+          wallHeight: 5,
+          complexity: 'default',
+          // seed: 42,
+          theme: 'liminal'  // ← Theme handles all materials/colors!
+          
+        });
 
-    // Left wall
-    const leftWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 5),
-      wallMaterial
-    );
-    leftWall.position.set(-5, 2.5, 0);
-    leftWall.rotation.y = Math.PI / 2;
-    Collisions.add(leftWall);
+        const layout = generator.generateGallery();
+        
+        // Build geometry with textures (theme system handles tiling automatically)
+        const { collisionGroup, artworkPlacements, spawnPosition } = 
+          generator.buildGeometry(scene, assets.textures);
 
-    // Right wall
-    const rightWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 5),
-      wallMaterial
-    );
-    rightWall.position.set(5, 2.5, 0);
-    rightWall.rotation.y = -Math.PI / 2;
-    Collisions.add(rightWall);
+        setLoadingProgress(85);
+        setLoadingStatus('Setting up atmosphere...');
 
-    // Back wall
-    const backWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 5),
-      wallMaterial
-    );
-    backWall.position.set(0, 2.5, -50);
-    Collisions.add(backWall);
+        // ===== Light Manager =====
+        const atmosphere = new LightManager(scene, camera, {
+          backgroundColor: 0xbfb6a5,
+          fogColor: 0xF2E583,
+          fogDensity: { near: 2, far: 60 },
+          ambientColor: 0xE6DAB8, // Filter basically
+          fluorescentColor: 0xFFF5BF,
+        });
 
-    // Front wall
-    const frontWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 5),
-      wallMaterial
-    );
-    frontWall.position.set(0, 2.5, 50);
-    frontWall.rotation.y = Math.PI;
-    Collisions.add(frontWall);
+        atmosphere.initialize(layout.rooms);
+        atmosphereRef.current = atmosphere;
 
-    // Ceiling
-    const ceiling = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 100),
-      wallMaterial
-    );
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = 5;
-    scene.add(ceiling);
+        setLoadingProgress(85);
+        setLoadingStatus('Placing artworks...');
 
-    // Controls setup
-    const controls = new PointerLockControls(camera, renderer.domElement);
-    controlsRef.current = controls;
+        // ===== PLACE ARTWORKS =====
+        const artworkLoader = new ArtworkLoader();
+        artworkLoader.artworks = assets.artworks;
 
-    // Movement variables
-    const moveSpeed = 0.1;
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    const moveState = {
-      backward: false,
-      forward: false,
-      left: false,
-      right: false,
-    };
+        if (assets.artworks.length > 0) {
+          artworkLoader.placeArtworks(scene, artworkPlacements, {
+            showLabels: true,           // Enable/disable labels
+            // 'bottom' == title, Name, desc on bottom of art
+            // 'side' == title and art name very minimal
+            // 'verbose' == best of both worlds but all on the side
+            labelStyle: 'verbose',         // 'side' or 'bottom' or 'verbose'
+            showDescription: true      // Show full description (only for 'bottom' style)
+          });
+          
+          // Wait for all textures to actually load into memory
+          setLoadingStatus('Waiting for artwork textures...');
+          await artworkLoader.waitForTexturesLoaded();
+          
+        }
+        
 
-    // Keyboard controls
-    const onKeyDown = (event) => {
-      switch (event.code) {
-        case 'ArrowUp':
-        case 'KeyW':
-          moveState.forward = true;
-          break;
-        case 'ArrowDown':
-        case 'KeyS':
-          moveState.backward = true;
-          break;
-        case 'ArrowLeft':
-        case 'KeyA':
-          moveState.left = true;
-          break;
-        case 'ArrowRight':
-        case 'KeyD':
-          moveState.right = true;
-          break;
+        camera.position.copy(spawnPosition);
+
+        setLoadingProgress(95);
+        setLoadingStatus('Pre-rendering gallery (preventing stutters)...');
+
+        // ===== COMPREHENSIVE PRE-RENDERING WARMUP =====
+        // Visit every location and render to force EVERYTHING into GPU cache
+        await new Promise(resolve => {
+          setTimeout(async () => {
+            console.log('Starting comprehensive pre-render...');
+            
+            const originalPosition = camera.position.clone();
+            const originalRotation = camera.rotation.clone();
+            
+            // Step 1: Compile shaders
+            renderer.compile(scene, camera);
+            console.log(' Shaders compiled');
+            
+            // Step 2: Visit EVERY room and look in ALL directions
+            let renderCount = 0;
+            
+            for (const room of layout.rooms) {
+              // Stand in center of room
+              camera.position.set(room.position.x, 2.5, room.position.z);
+              
+              // Look in 8 directions (N, NE, E, SE, S, SW, W, NW)
+              for (let angle = 0; angle < 360; angle += 45) {
+                camera.rotation.y = (angle * Math.PI) / 180;
+                
+                // Look straight
+                camera.rotation.x = 0;
+                renderer.render(scene, camera);
+                renderCount++;
+                
+                // Look up slightly
+                camera.rotation.x = Math.PI / 6;
+                renderer.render(scene, camera);
+                renderCount++;
+                
+                // Look down slightly  
+                camera.rotation.x = -Math.PI / 6;
+                renderer.render(scene, camera);
+                renderCount++;
+              }
+              
+              console.log(`Pre-rendered room ${room.id} (${renderCount} renders so far)`);
+            }
+            
+            // Step 3: Visit hallways
+            for (const hallway of layout.hallways) {
+              const room1 = layout.rooms.find(r => r.id === hallway.from);
+              const room2 = layout.rooms.find(r => r.id === hallway.to);
+              
+              if (room1 && room2) {
+                // Stand in middle of hallway
+                const midX = (room1.position.x + room2.position.x) / 2;
+                const midZ = (room1.position.z + room2.position.z) / 2;
+                
+                camera.position.set(midX, 2.5, midZ);
+                
+                // Look both ways
+                const dx = room2.position.x - room1.position.x;
+                const dz = room2.position.z - room1.position.z;
+                const angle = Math.atan2(dx, dz);
+                
+                camera.rotation.y = angle;
+                renderer.render(scene, camera);
+                camera.rotation.y = angle + Math.PI;
+                renderer.render(scene, camera);
+                
+                renderCount += 2;
+              }
+            }
+            
+            console.log(`Pre-rendered hallways (${renderCount} renders total)`);
+            
+            // Step 4: Stand at spawn and do final 360° sweep
+            camera.position.copy(originalPosition);
+            for (let angle = 0; angle < 360; angle += 30) {
+              camera.rotation.y = (angle * Math.PI) / 180;
+              camera.rotation.x = 0;
+              renderer.render(scene, camera);
+              renderCount++;
+            }
+            
+            // Step 5: Restore original view and render final frame
+            camera.position.copy(originalPosition);
+            camera.rotation.copy(originalRotation);
+            renderer.render(scene, camera);
+            
+            console.log(`Pre-render complete: ${renderCount} total renders`);
+            console.log(`Everything should be in GPU cache now`);
+            
+            requestAnimationFrame(() => {
+              resolve();
+            });
+          }, 500); // Small delay to ensure textures are ready
+        });
+
+        setLoadingProgress(98);
+        setLoadingStatus('Finalizing...');
+
+        // ===== CONTROLS =====
+        const controls = new PointerLockControls(camera, renderer.domElement);
+        controlsRef.current = controls;
+
+        const moveSpeed = 0.15;
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+        const moveState = {
+          forward: false,
+          backward: false,
+          left: false,
+          right: false,
+        };
+
+        const onKeyDown = (event) => {
+          switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+              moveState.forward = true;
+              break;
+            case 'ArrowDown':
+            case 'KeyS':
+              moveState.backward = true;
+              break;
+            case 'ArrowLeft':
+            case 'KeyA':
+              moveState.left = true;
+              break;
+            case 'ArrowRight':
+            case 'KeyD':
+              moveState.right = true;
+              break;
+          }
+        };
+
+        const onKeyUp = (event) => {
+          switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+              moveState.forward = false;
+              break;
+            case 'ArrowDown':
+            case 'KeyS':
+              moveState.backward = false;
+              break;
+            case 'ArrowLeft':
+            case 'KeyA':
+              moveState.left = false;
+              break;
+            case 'ArrowRight':
+            case 'KeyD':
+              moveState.right = false;
+              break;
+          }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        raycaster.far = 0.6;
+        
+        const forwardDir = new THREE.Vector3();
+        const backwardDir = new THREE.Vector3();
+        const rightDir = new THREE.Vector3();
+        const leftDir = new THREE.Vector3();
+
+        const checkCollision = (direction) => {
+          raycaster.set(camera.position, direction);
+          const intersects = raycaster.intersectObjects(collisionGroup.children);
+          return intersects.length > 0 && intersects[0].distance < 0.5;
+        };
+
+        // Animation loop
+        let startTime = Date.now();
+        const animate = () => {
+          requestAnimationFrame(animate);
+
+          const currentTime = Date.now() - startTime;
+
+          if (atmosphereRef.current) {
+            atmosphereRef.current.update(currentTime);
+          }
+
+          if (controls.isLocked) {
+            velocity.x = 0;
+            velocity.z = 0;
+
+            camera.getWorldDirection(forwardDir);
+            forwardDir.y = 0;
+            forwardDir.normalize();
+            
+            backwardDir.copy(forwardDir).negate();
+            rightDir.crossVectors(forwardDir, camera.up).normalize();
+            leftDir.copy(rightDir).negate();
+
+            direction.z = Number(moveState.backward) - Number(moveState.forward);
+            direction.x = Number(moveState.left) - Number(moveState.right);
+            direction.normalize();
+
+            let canMoveForward = !moveState.forward || !checkCollision(forwardDir);
+            let canMoveBackward = !moveState.backward || !checkCollision(backwardDir);
+            let canMoveRight = !moveState.right || !checkCollision(rightDir);
+            let canMoveLeft = !moveState.left || !checkCollision(leftDir);
+
+            if ((moveState.forward && canMoveForward) || (moveState.backward && canMoveBackward)) {
+              velocity.z = direction.z * moveSpeed;
+            }
+            if ((moveState.right && canMoveRight) || (moveState.left && canMoveLeft)) {
+              velocity.x = direction.x * moveSpeed;
+            }
+
+            controls.moveRight(-velocity.x);
+            controls.moveForward(-velocity.z);
+          }
+
+          renderer.render(scene, camera);
+        };
+
+        animate();
+
+        const handleResize = () => {
+          if (!camera || !renderer) return;
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        // Finish loading
+        setLoadingProgress(100);
+        setLoadingStatus('Ready!');
+        
+        // Small delay before hiding loading screen for smooth transition
+        setTimeout(() => {
+          setLoading(false);
+        }, 500);
+
+        return () => {
+          document.removeEventListener('keydown', onKeyDown);
+          document.removeEventListener('keyup', onKeyUp);
+          window.removeEventListener('resize', handleResize);
+          if (canvasRef.current && renderer.domElement) {
+            canvasRef.current.removeChild(renderer.domElement);
+          }
+          renderer.dispose();
+          artworkLoader.dispose();
+        };
+      } catch (error) {
+        console.error('Error initializing gallery:', error);
+        setLoadError(true);
+        setLoading(false);
       }
     };
 
-    const onKeyUp = (event) => {
-      switch (event.code) {
-        case 'ArrowUp':
-        case 'KeyW':
-          moveState.forward = false;
-          break;
-        case 'ArrowDown':
-        case 'KeyS':
-          moveState.backward = false;
-          break;
-        case 'ArrowLeft':
-        case 'KeyA':
-          moveState.left = false;
-          break;
-        case 'ArrowRight':
-        case 'KeyD':
-          moveState.right = false;
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-
-    // Raycaster setup (outside animate loop for performance)
-    const raycaster = new THREE.Raycaster();
-    raycaster.far = 0.6; // Check collisions within 0.6 units
-    
-    // Direction vectors
-    const forwardDir = new THREE.Vector3();
-    const backwardDir = new THREE.Vector3();
-    const rightDir = new THREE.Vector3();
-    const leftDir = new THREE.Vector3();
-
-    // Helper function to check collision in a direction
-    const checkCollision = (direction) => {
-      raycaster.set(camera.position, direction);
-      const intersects = raycaster.intersectObjects(Collisions.children);
-      return intersects.length > 0 && intersects[0].distance < 0.5;
-    };
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      if (controls.isLocked) {
-        // Reset velocity
-        velocity.x = 0;
-        velocity.z = 0;
-
-        // Get camera directions
-        camera.getWorldDirection(forwardDir);
-        forwardDir.y = 0; // Keep movement horizontal
-        forwardDir.normalize();
-        backwardDir.copy(forwardDir).negate();
-        rightDir.crossVectors(forwardDir, camera.up).normalize();
-        leftDir.copy(rightDir).negate();
-
-        // Calculate movement direction
-        direction.z = Number(moveState.forward) - Number(moveState.backward);
-        direction.x = Number(moveState.right) - Number(moveState.left);
-        direction.normalize();
-
-        // Check collisions and apply movement
-        let canMoveForward = true;
-        let canMoveBackward = true;
-        let canMoveRight = true;
-        let canMoveLeft = true;
-
-        if (moveState.forward) {
-          canMoveForward = !checkCollision(forwardDir);
-        }
-        if (moveState.backward) {
-          canMoveBackward = !checkCollision(backwardDir);
-        }
-        if (moveState.right) {
-          canMoveRight = !checkCollision(rightDir);
-        }
-        if (moveState.left) {
-          canMoveLeft = !checkCollision(leftDir);
-        }
-
-        // Apply movement only if no collision
-        if ((moveState.forward && canMoveForward) || (moveState.backward && canMoveBackward)) {
-          velocity.z = direction.z * moveSpeed;
-        }
-        if ((moveState.right && canMoveRight) || (moveState.left && canMoveLeft)) {
-          velocity.x = direction.x * moveSpeed;
-        }
-        controls.moveRight(velocity.x);
-        controls.moveForward(velocity.z);
-      }
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    // Handle window resize
-    const handleResize = () => {
-      if (!camera || !renderer) return;
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('resize', handleResize);
-      if (canvasRef.current && renderer.domElement) {
-        canvasRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
+    initGallery();
   }, []);
 
   const handleStartExperience = () => {
     controlsRef.current?.lock();
     setShowOverlay(false);
-
   };
 
   return (
     <div className="relative w-full h-screen">
-      {/* Three.js Canvas Container */}
       <div ref={canvasRef} className="w-full h-full" />
 
-      {/* Overlay Instructions */}
-      {showOverlay && (
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="bg-black/80 backdrop-blur-sm p-8 rounded-lg text-white text-center pointer-events-auto max-w-md">
-          <h1 className="text-4xl font-bold mb-4">Liminal Gallery</h1>
-          <p className="text-gray-300 mb-6">
-            An immersive 3D art experience TEST
-          </p>
-          <button
-            onClick={handleStartExperience}
-            className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-          >
-            Enter Gallery
-          </button>
-          <div className="mt-6 text-sm text-gray-400">
-            <p>Use WASD or Arrow Keys to move</p>
-            <p>Move your mouse to look around</p>
-            <p>Press ESC to exit pointer lock</p>
+      {/* Loading Screen */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="text-center">
+            <div className="mb-8">
+              <div className="inline-block w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">Loading Gallery</h2>
+            <p className="text-gray-400 mb-2">{loadingStatus}</p>
+            
+            {/* Progress Bar */}
+            <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden mx-auto">
+              <div 
+                className="h-full bg-white transition-all duration-300"
+                style={{ width: `${loadingProgress}%` }}
+              ></div>
+            </div>
+            <p className="text-gray-500 mt-2 text-sm">{loadingProgress}%</p>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Entry Overlay */}
+      {showOverlay && !loading && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="bg-black/80 backdrop-blur-sm p-8 rounded-lg text-white text-center pointer-events-auto max-w-md">
+            <h1 className="text-4xl font-bold mb-4">Gallery</h1>
+            {loadError ? (
+              <p className="text-yellow-400 mb-6">
+                Running in test mode - add artworks.json to enable images
+              </p>
+            ) : (
+              <p className="text-gray-300 mb-6">
+                A dreamlike space very nostalgic 
+              </p>
+            )}
+            <button
+              onClick={handleStartExperience}
+              className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+            >
+              Enter Gallery
+            </button>
+            <div className="mt-6 text-sm text-gray-400">
+              <p>Use WASD or Arrow Keys to move</p>
+              <p>Move your mouse to look around</p>
+              <p>Press ESC to exit</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
