@@ -51,3 +51,4 @@ back/tsconfig.tsbuildinfo
 
 # For some portrait stuff
 front/public/Pictures/*
+front/public/artworks.json
