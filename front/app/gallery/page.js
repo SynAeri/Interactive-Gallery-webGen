@@ -1,5 +1,9 @@
 'use client';
 
+useEffect(() => {
+  fetch('/track', { method: 'POST' });
+}, []);
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
