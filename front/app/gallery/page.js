@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
@@ -21,6 +22,11 @@ export default function GalleryPage() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState('Initializing...');
   const [loadError, setLoadError] = useState(false);
+
+
+  useEffect(() => {
+    fetch('/api/track', { method: 'POST' }); 
+  }, []);
 
   useEffect(() => {
     fetch('/track', { method: 'POST' });
