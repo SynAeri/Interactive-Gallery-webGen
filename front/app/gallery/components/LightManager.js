@@ -16,9 +16,7 @@ class LightManager {
     };
     
     this.fogDensity = options.fogDensity || { near: 5, far: 60 };
-    this.bloomIntensity = options.bloomIntensity || 0.3;
-    
-    this.dustParticles = null;
+    this.bloomIntensity = options.bloomIntensity || 0.3; 
     this.volumetricLayers = [];
   }
 
@@ -37,7 +35,7 @@ class LightManager {
     this.scene.add(ambientLight);
 
     // Soft directional light (overhead fluorescent feel)
-    const mainLight = new THREE.DirectionalLight(this.colors.fluorescent, 0.4);
+    const mainLight = new THREE.DirectionalLight(this.colors.fluorescent, 0.8);
     mainLight.position.set(0, 10, 0);
     mainLight.castShadow = false; // No harsh shadows
     this.scene.add(mainLight);
@@ -56,7 +54,7 @@ class LightManager {
   /**
    * Add fluorescent ceiling lights with soft glow
    */
-  addCeilingLights(positions, height = 4.5, intensity = 0.35) {
+  addCeilingLights(positions, height = 4.5, intensity = 0.6) {
     const lights = [];
 
     positions.forEach(pos => {
@@ -70,7 +68,7 @@ class LightManager {
       const glowMaterial = new THREE.MeshBasicMaterial({
         color: 0xfffef2,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.3,
       });
       const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
       glowSphere.position.copy(light.position);
