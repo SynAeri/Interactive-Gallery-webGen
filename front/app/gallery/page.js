@@ -49,7 +49,7 @@ export default function GalleryPage() {
           },
           // Error callback
           (url) => {
-            console.warn(`⚠️ Error loading: ${url}`);
+            console.warn(`Error loading: ${url}`);
           }
         );
 
@@ -104,14 +104,14 @@ export default function GalleryPage() {
 
         // ===== GENERATE GALLERY =====
         const generator = new GalleryGenerator({
-          picturesAvailable: assets.artworks.length || 8,
-          picturesPerRoom: 4,
+          picturesAvailable: 28,
+          picturesPerRoom: 3,
           roomSize: null,
           hallwayWidth: 5,
           wallHeight: 5,
           complexity: 'default',
           // seed: 42,
-          theme: 'liminal'  // ← Theme handles all materials/colors!
+          theme: 'liminal'  // Theme handles all materials/colors!
           
         });
 
@@ -176,7 +176,7 @@ export default function GalleryPage() {
             
             // Step 1: Compile shaders
             renderer.compile(scene, camera);
-            console.log(' Shaders compiled');
+            console.log('Shaders compiled');
             
             // Step 2: Visit EVERY room and look in ALL directions
             let renderCount = 0;

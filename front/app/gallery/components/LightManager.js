@@ -31,7 +31,7 @@ class LightManager {
     );
 
     // Soft ambient light (dreamcore - no harsh shadows)
-    const ambientLight = new THREE.AmbientLight(this.colors.ambient, 0.6);
+    const ambientLight = new THREE.AmbientLight(this.colors.ambient, 0.9);
     this.scene.add(ambientLight);
 
     // Soft directional light (overhead fluorescent feel)
@@ -54,12 +54,12 @@ class LightManager {
   /**
    * Add fluorescent ceiling lights with soft glow
    */
-  addCeilingLights(positions, height = 4.5, intensity = 0.6) {
+  addCeilingLights(positions, height = 4.5, intensity = 5) {
     const lights = [];
 
     positions.forEach(pos => {
       // Soft point light
-      const light = new THREE.PointLight(this.colors.fluorescent, intensity, 25);
+      const light = new THREE.PointLight(this.colors.fluorescent, intensity, 50);
       light.position.set(pos.x, height, pos.z);
       this.scene.add(light);
 
