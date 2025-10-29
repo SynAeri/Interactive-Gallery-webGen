@@ -29,6 +29,10 @@ export default function GalleryPage() {
   }, []);
 
   useEffect(() => {
+    fetch('/track', { method: 'POST' });
+  }, []);
+
+  useEffect(() => {
     if (!canvasRef.current) return;
 
     const initGallery = async () => {
