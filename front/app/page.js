@@ -9,6 +9,10 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    fetch('/api/track', { method: 'POST' }); 
+  }, []);
+
+  useEffect(() => {
     const checkMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
     setIsMobile(checkMobile);
   }, []);

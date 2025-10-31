@@ -24,9 +24,6 @@ export default function GalleryPage() {
   const [loadError, setLoadError] = useState(false);
 
 
-  useEffect(() => {
-    fetch('/api/track', { method: 'POST' }); 
-  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
