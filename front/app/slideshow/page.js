@@ -52,14 +52,14 @@ return (
               pagination: true,
               arrows: true,
               autoplay: true,
-              height: '75vh',
+              autoHeight: true,
               cover: false,
             }}
             aria-label="Gallery Artworks"
           >
             {artworks.map((artwork) => (
               <SplideSlide key={artwork.id}>
-                <div className="flex flex-col items-center justify-center h-full px-4">
+                <div className="flex flex-col items-center h-auto px-4 py-8">
                   
                   <div className="flex-shrink-0 mb-6 max-h-[50vh] w-full flex justify-center">
                     <img
