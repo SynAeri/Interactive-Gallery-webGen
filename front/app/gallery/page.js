@@ -101,8 +101,8 @@ export default function GalleryPage() {
 
         // ===== GENERATE GALLERY =====
         const generator = new GalleryGenerator({
-          picturesAvailable: 28,
-          picturesPerRoom: 3,
+          picturesAvailable: assets.artworks.length || 20,
+          picturesPerRoom: 2,
           roomSize: null,
           hallwayWidth: 5,
           wallHeight: 5,
