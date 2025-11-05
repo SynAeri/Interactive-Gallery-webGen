@@ -8,8 +8,13 @@ import { FaGithub, FaLinkedin } from 'react-icons/fa';
 export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/track', { method: 'POST' }); 
+useEffect(() => {
+    if (localStorage.getItem('hasViewedGallery') !== 'true') {
+      
+      fetch('/api/track', { method: 'POST' });
+      
+      localStorage.setItem('hasViewedGallery', 'true');
+    }
   }, []);
 
   useEffect(() => {
@@ -107,7 +112,7 @@ active ? 'bg-gray-700 text-white' : 'text-white' // Active vs. Normal
           </div>
           
           <div className="pt-12 text-sm text-gray-500">
-            <p>Best experienced in fullscreen</p>
+            <p>This site uses localstorage to track  site visitation, by using this site you consent to this.</p>
            
             <div className="py-5 flex gap-5 justify-center">
 
