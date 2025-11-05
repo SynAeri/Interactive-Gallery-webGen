@@ -542,8 +542,8 @@ const handleStartExperience = () => {
 
       {/* Entry Overlay */}
       {showOverlay && !loading && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/80 backdrop-blur-sm p-8 rounded-lg text-white text-center pointer-events-auto max-w-md">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="bg-black/80 backdrop-blur-sm p-8 rounded-lg text-white text-center max-w-md">
             <h1 className="text-4xl font-bold mb-4">Gallery</h1>
             {loadError ? (
               <p className="text-yellow-400 mb-6">
