@@ -8,6 +8,7 @@ import GalleryGenerator from './components/GalleryGenerator';
 import ArtworkLoader from './components/ArtworkLoader';
 import LightManager from './components/LightManager';
 import AssetLoadingManager from './components/AssetLoadingManager';
+import Joystick from './components/Joystick';
 
 export default function GalleryPage() {
   const canvasRef = useRef(null);
@@ -22,13 +23,56 @@ export default function GalleryPage() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState('Initializing...');
   const [loadError, setLoadError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
+
+  // This is the SAME moveState your game loop already uses.
+  const moveState = useRef({ forward: false, backward: false, left: false, right: false });
+
+  // We need a NEW ref to store the "look" joystick's data
+  const lookState = useRef({ x: 0, y: 0 });
+
+  // --- Joystick Handlers ---
+
+  const handleMove = (event) => {
+    // A "deadzone" to prevent drift
+    const threshold = 0.3; 
+
+    // Translate analog joystick (event.x, event.y) to boolean moveState
+    moveState.current.forward = event.y > threshold;
+    moveState.current.backward = event.y < -threshold;
+    moveState.current.left = event.x < -threshold;
+    moveState.current.right = event.x > threshold;
+  };
+
+  const handleMoveStop = () => {
+    // Reset all movement when the stick is released
+    moveState.current.forward = false;
+    moveState.current.backward = false;
+    moveState.current.left = false;
+    moveState.current.right = false;
+  };
+
+  const handleLook = (event) => {
+    // Just store the raw X/Y. The game loop will use this.
+    lookState.current.x = event.x;
+    lookState.current.y = event.y;
+  };
+
+  const handleLookStop = () => {
+    lookState.current.x = 0;
+    lookState.current.y = 0;
+  };
 
 
   useEffect(() => {
+
+    const checkMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    setIsMobile(checkMobile);
+
     if (!canvasRef.current) return;
 
-    const initGallery = async () => {
+    const initGallery = async (isMobileDevice) => {
       try {
         setLoadingStatus('Loading assets...');
 
@@ -259,37 +303,31 @@ export default function GalleryPage() {
         setLoadingProgress(98);
         setLoadingStatus('Finalizing...');
 
-        // ===== CONTROLS =====
+        // ===== CONTROLS ===== //
         const controls = new PointerLockControls(camera, renderer.domElement);
+        const mobileLookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
         controlsRef.current = controls;
 
         const moveSpeed = 0.15;
         const velocity = new THREE.Vector3();
         const direction = new THREE.Vector3();
-        const moveState = {
-          forward: false,
-          backward: false,
-          left: false,
-          right: false,
-        };
-
         const onKeyDown = (event) => {
           switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
-              moveState.forward = true;
+              moveState.current.forward = true;
               break;
             case 'ArrowDown':
             case 'KeyS':
-              moveState.backward = true;
+              moveState.current.backward = true;
               break;
             case 'ArrowLeft':
             case 'KeyA':
-              moveState.left = true;
+              moveState.current.left = true;
               break;
             case 'ArrowRight':
             case 'KeyD':
-              moveState.right = true;
+              moveState.current.right = true;
               break;
           }
         };
@@ -298,19 +336,19 @@ export default function GalleryPage() {
           switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
-              moveState.forward = false;
+              moveState.current.forward = false;
               break;
             case 'ArrowDown':
             case 'KeyS':
-              moveState.backward = false;
+              moveState.current.backward = false;
               break;
             case 'ArrowLeft':
             case 'KeyA':
-              moveState.left = false;
+              moveState.current.left = false;
               break;
             case 'ArrowRight':
             case 'KeyD':
-              moveState.right = false;
+              moveState.current.right = false;
               break;
           }
         };
@@ -334,10 +372,16 @@ export default function GalleryPage() {
         };
 
         // Animation loop
-        let startTime = Date.now();
-        const animate = () => {
-          requestAnimationFrame(animate);
+        // clock to help with speed
 
+        const clock = new THREE.Clock();
+        let startTime = Date.now();
+
+        
+        const animate = () => {
+
+          requestAnimationFrame(animate);
+          const delta = clock.getDelta();
           const currentTime = Date.now() - startTime;
 
           if (atmosphereRef.current) {
@@ -356,24 +400,77 @@ export default function GalleryPage() {
             rightDir.crossVectors(forwardDir, camera.up).normalize();
             leftDir.copy(rightDir).negate();
 
-            direction.z = Number(moveState.backward) - Number(moveState.forward);
-            direction.x = Number(moveState.left) - Number(moveState.right);
+            direction.z = Number(moveState.current.backward) - Number(moveState.current.forward);
+            direction.x = Number(moveState.current.left) - Number(moveState.current.right);
             direction.normalize();
 
-            let canMoveForward = !moveState.forward || !checkCollision(forwardDir);
-            let canMoveBackward = !moveState.backward || !checkCollision(backwardDir);
-            let canMoveRight = !moveState.right || !checkCollision(rightDir);
-            let canMoveLeft = !moveState.left || !checkCollision(leftDir);
+            let canMoveForward = !moveState.current.forward || !checkCollision(forwardDir);
+            let canMoveBackward = !moveState.current.backward || !checkCollision(backwardDir);
+            let canMoveRight = !moveState.current.right || !checkCollision(rightDir);
+            let canMoveLeft = !moveState.current.left || !checkCollision(leftDir);
 
-            if ((moveState.forward && canMoveForward) || (moveState.backward && canMoveBackward)) {
+            if ((moveState.current.forward && canMoveForward) || (moveState.current.backward && canMoveBackward)) {
               velocity.z = direction.z * moveSpeed;
             }
-            if ((moveState.right && canMoveRight) || (moveState.left && canMoveLeft)) {
+            if ((moveState.current.right && canMoveRight) || (moveState.current.left && canMoveLeft)) {
               velocity.x = direction.x * moveSpeed;
             }
 
             controls.moveRight(-velocity.x);
             controls.moveForward(-velocity.z);
+          } else if (isMobileDevice){
+              // ===== ToDO Fix later and refactor ===== // 
+
+              // Camera Stuff 
+              const lookSpeed = 1.5; // Look sensitivity
+              const deltaX = lookState.current.x * lookSpeed * delta;
+              const deltaY = lookState.current.y * lookSpeed * delta;
+              
+              mobileLookEuler.setFromQuaternion(camera.quaternion);
+              
+              mobileLookEuler.y -= deltaX; // Yaw (left/right)
+              mobileLookEuler.x += deltaY; // Pitch (up/down)
+              
+              const maxPitch = Math.PI / 2.2;
+              mobileLookEuler.x = Math.max(-maxPitch, Math.min(maxPitch, mobileLookEuler.x));
+              
+              // Apply new rotation back to the camera's quaternion
+              camera.quaternion.setFromEuler(mobileLookEuler);
+
+              // Handle Moving
+              // We re-calculate velocity using the same collision logic
+              velocity.x = 0;
+              velocity.z = 0;
+
+              camera.getWorldDirection(forwardDir);
+              forwardDir.y = 0;
+              forwardDir.normalize();
+
+              backwardDir.copy(forwardDir).negate();
+              rightDir.crossVectors(forwardDir, camera.up).normalize();
+              leftDir.copy(rightDir).negate();
+
+              direction.z = Number(moveState.current.backward) - Number(moveState.current.forward);
+              direction.x = Number(moveState.current.left) - Number(moveState.current.right);
+              direction.normalize(); // -1, 0, or 1
+
+              let canMoveForward = !moveState.current.forward || !checkCollision(forwardDir);
+              let canMoveBackward = !moveState.current.backward || !checkCollision(backwardDir);
+              let canMoveRight = !moveState.current.right || !checkCollision(rightDir);
+              let canMoveLeft = !moveState.current.left || !checkCollision(leftDir);
+
+              const mobileMoveSpeed = 3.0; // 3 units per second
+
+              if ((moveState.current.forward && canMoveForward) || (moveState.current.backward && canMoveBackward)) {
+                velocity.z = direction.z * mobileMoveSpeed * delta;
+              }
+              if ((moveState.current.right && canMoveRight) || (moveState.current.left && canMoveLeft)) {
+                velocity.x = direction.x * mobileMoveSpeed * delta;
+              }
+
+              // --- Apply Movement Manually ---
+              controls.moveForward(-velocity.z);
+              controls.moveRight(-velocity.x);
           }
 
           renderer.render(scene, camera);
@@ -415,11 +512,10 @@ export default function GalleryPage() {
         setLoading(false);
       }
     };
-
-    initGallery();
+    initGallery(checkMobile);
   }, []);
 
-  const handleStartExperience = () => {
+const handleStartExperience = () => {
     controlsRef.current?.lock();
     setShowOverlay(false);
   };
@@ -478,6 +574,17 @@ export default function GalleryPage() {
           </div>
         </div>
       )}
+
+      {isMobile && !loading && (
+        <Joystick
+          onMove={handleMove}
+          onStop={handleMoveStop}
+          onLook={handleLook}
+          onLookStop={handleLookStop}
+        />
+      )}
     </div>
   );
+
+
 }
