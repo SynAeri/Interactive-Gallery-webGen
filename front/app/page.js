@@ -57,8 +57,7 @@ export default function Home() {
                 <Menu.Item>
                   {({ active, disabled }) => (
                     <Link
-                      href={isMobile ? '#' : '/gallery'}
-                      onClick={(e) => isMobile && e.preventDefault()}
+                      href="/gallery"
                       className={`block px-6 py-4 transition-colors duration-150 ${
 disabled ? 'text-gray-500 cursor-not-allowed' : // Disabled state (no bg!)
 active ? 'bg-gray-700 text-white' : 'text-white' // Active vs. Normal
@@ -68,7 +67,7 @@ active ? 'bg-gray-700 text-white' : 'text-white' // Active vs. Normal
                         Interactive 3D showcase
                         {isMobile && (
                           <span className="text-xs bg-gray-600 px-2 py-0.5 rounded">
-                            Desktop Only
+                            Desktop reccomended 
                           </span>
                         )}
                       </div>
