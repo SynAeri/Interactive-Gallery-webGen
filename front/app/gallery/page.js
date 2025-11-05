@@ -26,16 +26,12 @@ export default function GalleryPage() {
   const [isMobile, setIsMobile] = useState(false);
 
 
-  // This is the SAME moveState your game loop already uses.
   const moveState = useRef({ forward: false, backward: false, left: false, right: false });
 
-  // We need a NEW ref to store the "look" joystick's data
   const lookState = useRef({ x: 0, y: 0 });
 
-  // --- Joystick Handlers ---
-
+  // --- Joystick Handler --- // 
   const handleMove = (event) => {
-    // A "deadzone" to prevent drift
     const threshold = 0.3; 
 
     // Translate analog joystick (event.x, event.y) to boolean moveState
@@ -205,101 +201,99 @@ export default function GalleryPage() {
 
         setLoadingProgress(95);
         setLoadingStatus('Pre-rendering gallery (preventing stutters)...');
+        if (!isMobileDevice){
+          // Visit every location and render to force EVERYTHING into GPU cache
+          await new Promise(resolve => {
+            setTimeout(async () => {
+              console.log('Starting comprehensive pre-render...');
 
-        // ===== COMPREHENSIVE PRE-RENDERING WARMUP =====
-        // Visit every location and render to force EVERYTHING into GPU cache
-        await new Promise(resolve => {
-          setTimeout(async () => {
-            console.log('Starting comprehensive pre-render...');
-            
-            const originalPosition = camera.position.clone();
-            const originalRotation = camera.rotation.clone();
-            
-            // Step 1: Compile shaders
-            renderer.compile(scene, camera);
-            console.log('Shaders compiled');
-            
-            // Step 2: Visit EVERY room and look in ALL directions
-            let renderCount = 0;
-            
-            for (const room of layout.rooms) {
-              // Stand in center of room
-              camera.position.set(room.position.x, 2.5, room.position.z);
-              
-              // Look in 8 directions (N, NE, E, SE, S, SW, W, NW)
-              for (let angle = 0; angle < 360; angle += 45) {
+              const originalPosition = camera.position.clone();
+              const originalRotation = camera.rotation.clone();
+
+              // Step 1: Compile shaders
+              renderer.compile(scene, camera);
+              console.log('Shaders compiled');
+
+              // Step 2: Visit EVERY room and look in ALL directions
+              let renderCount = 0;
+
+              for (const room of layout.rooms) {
+                // Stand in center of room
+                camera.position.set(room.position.x, 2.5, room.position.z);
+
+                // Look in 8 directions (N, NE, E, SE, S, SW, W, NW)
+                for (let angle = 0; angle < 360; angle += 45) {
+                  camera.rotation.y = (angle * Math.PI) / 180;
+
+                  // Look straight
+                  camera.rotation.x = 0;
+                  renderer.render(scene, camera);
+                  renderCount++;
+
+                  // Look up slightly
+                  camera.rotation.x = Math.PI / 6;
+                  renderer.render(scene, camera);
+                  renderCount++;
+
+                  // Look down slightly  
+                  camera.rotation.x = -Math.PI / 6;
+                  renderer.render(scene, camera);
+                  renderCount++;
+                }  
+              }
+
+              // Step 3: Visit hallways
+              for (const hallway of layout.hallways) {
+                const room1 = layout.rooms.find(r => r.id === hallway.from);
+                const room2 = layout.rooms.find(r => r.id === hallway.to);
+
+                if (room1 && room2) {
+                  // Stand in middle of hallway
+                  const midX = (room1.position.x + room2.position.x) / 2;
+                  const midZ = (room1.position.z + room2.position.z) / 2;
+
+                  camera.position.set(midX, 2.5, midZ);
+
+                  // Look both ways
+                  const dx = room2.position.x - room1.position.x;
+                  const dz = room2.position.z - room1.position.z;
+                  const angle = Math.atan2(dx, dz);
+
+                  camera.rotation.y = angle;
+                  renderer.render(scene, camera);
+                  camera.rotation.y = angle + Math.PI;
+                  renderer.render(scene, camera);
+
+                  renderCount += 2;
+                }
+              }
+
+              // Step 4: Stand at spawn and do final 360° sweep
+              camera.position.copy(originalPosition);
+              for (let angle = 0; angle < 360; angle += 30) {
                 camera.rotation.y = (angle * Math.PI) / 180;
-                
-                // Look straight
                 camera.rotation.x = 0;
                 renderer.render(scene, camera);
                 renderCount++;
-                
-                // Look up slightly
-                camera.rotation.x = Math.PI / 6;
-                renderer.render(scene, camera);
-                renderCount++;
-                
-                // Look down slightly  
-                camera.rotation.x = -Math.PI / 6;
-                renderer.render(scene, camera);
-                renderCount++;
               }
-              
-              console.log(`Pre-rendered room ${room.id} (${renderCount} renders so far)`);
-            }
-            
-            // Step 3: Visit hallways
-            for (const hallway of layout.hallways) {
-              const room1 = layout.rooms.find(r => r.id === hallway.from);
-              const room2 = layout.rooms.find(r => r.id === hallway.to);
-              
-              if (room1 && room2) {
-                // Stand in middle of hallway
-                const midX = (room1.position.x + room2.position.x) / 2;
-                const midZ = (room1.position.z + room2.position.z) / 2;
-                
-                camera.position.set(midX, 2.5, midZ);
-                
-                // Look both ways
-                const dx = room2.position.x - room1.position.x;
-                const dz = room2.position.z - room1.position.z;
-                const angle = Math.atan2(dx, dz);
-                
-                camera.rotation.y = angle;
-                renderer.render(scene, camera);
-                camera.rotation.y = angle + Math.PI;
-                renderer.render(scene, camera);
-                
-                renderCount += 2;
-              }
-            }
-            
-            console.log(`Pre-rendered hallways (${renderCount} renders total)`);
-            
-            // Step 4: Stand at spawn and do final 360° sweep
-            camera.position.copy(originalPosition);
-            for (let angle = 0; angle < 360; angle += 30) {
-              camera.rotation.y = (angle * Math.PI) / 180;
-              camera.rotation.x = 0;
-              renderer.render(scene, camera);
-              renderCount++;
-            }
-            
-            // Step 5: Restore original view and render final frame
-            camera.position.copy(originalPosition);
-            camera.rotation.copy(originalRotation);
-            renderer.render(scene, camera);
-            
-            console.log(`Pre-render complete: ${renderCount} total renders`);
-            console.log(`Everything should be in GPU cache now`);
-            
-            requestAnimationFrame(() => {
-              resolve();
-            });
-          }, 500); // Small delay to ensure textures are ready
-        });
 
+              // Step 5: Restore original view and render final frame
+              camera.position.copy(originalPosition);
+              camera.rotation.copy(originalRotation);
+              renderer.render(scene, camera);
+
+              console.log(`Pre-render complete: ${renderCount} total renders`);
+              console.log(`Everything should be in GPU cache now`);
+
+              requestAnimationFrame(() => {
+                resolve();
+              });
+            }, 500); // Small delay to ensure textures are ready
+          });
+        } else {
+          console.log('is mobile');
+          renderer.compile(scene, camera);
+        }
         setLoadingProgress(98);
         setLoadingStatus('Finalizing...');
 
